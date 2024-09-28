@@ -10,11 +10,11 @@ A simple Balatro mod that adds some of my ideas. This mod requries JenLib.
 ## Contents
 
 ### Jokers
-2 Common Jokers
-6 Uncommon Jokers
-2 Rare Jokers
-4 Legendary Jokers
-1 Exotic Joker (requires Cryptid for the rarity)
+2 Common Jokers  
+6 Uncommon Jokers  
+2 Rare Jokers  
+4 Legendary Jokers  
+1 Exotic Joker (requires Cryptid for the rarity)  
 
 ### Consumeables
 2 Spectral Cards
