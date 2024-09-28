@@ -1,6 +1,5 @@
 # !! DO NOT DOWNLOAD THIS REPO !! 
-### It is currently a W.I.P. 
-### I accidentally deleted some of the art for this mod.
+### It is currently a W.I.P and I accidentally deleted some of the art for this mod.
 ### I am in the process of recreating it and will update it shortly.
 ### Also, there is currently no 2x artwork.
 
