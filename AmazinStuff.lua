@@ -2,7 +2,7 @@
 --- MOD_NAME: Amazin Stuff
 --- MOD_ID: AmazinStuff
 --- MOD_AUTHOR: [AmazinDooD]
---- MOD_DESCRIPTION: A simple-ish mod with a bunch of my ideas. Requires JenLib.
+--- MOD_DESCRIPTION: A simple-ish mod with a bunch of my ideas. Requires THE OLD VERSION OF JenLib.
 --- BADGE_COLOR: 33CC94
 --- PREFIX: amazin
 --- DEPENDENCIES: [JenLib]
@@ -30,7 +30,8 @@ SMODS.Atlas {
 }
 
 -- create a card
-local function amaz_create_card(card_type, key) 
+local function amaz_create_card(card_type, key)
+    if not batchfind(card_type, {"Spectral","Tarot","Planet","Joker"}) then return false end
     if batchfind(card_type, {"Spectral","Tarot","Planet"}) then
         G.GAME.consumeable_buffer = G.GAME.consumeable_buffer + 1
         G.E_MANAGER:add_event(Event({
@@ -44,7 +45,7 @@ local function amaz_create_card(card_type, key)
                 return true
             end)
         }))
-    elseif card_type == "Joker" then
+    else
         G.GAME.joker_buffer = G.GAME.joker_buffer + 1
         G.E_MANAGER:add_event(Event({
             trigger = 'before',
@@ -202,7 +203,7 @@ local silhouette = SMODS.Joker {
     config = {extra = {xmult = 1.5, mult_inc = 0.1}},
     pos = {x=0,y=0},
     discovered = false,
-    rarity = 3,
+    rarity = 2,
     cost = 8,
     blueprint_compat = true,
     loc_vars = function(self, info_queue, card)
@@ -242,7 +243,7 @@ local consumer = SMODS.Joker {
     atlas = "joker_atlas",
     pos = {x=1,y=0},
     discovered = false,
-    rarity = 3,
+    rarity = 2,
     cost = 7,
     blueprint_compat = true,
     loc_vars = function(self, info_queue, card)
@@ -407,7 +408,7 @@ local hat = SMODS.Joker {
     atlas = "joker_atlas",
     pos = {x=3,y=1},
     config = {extra = {xmult = 2}},
-    rarity = 2,
+    rarity = 1,
     blueprint_compat = true,
     cost = 4,
     loc_vars = function(self, info_queue, card)
@@ -439,7 +440,7 @@ local radiating = SMODS.Joker {
     atlas = "joker_atlas",
     pos = {x=0,y=2},
     config = {extra = {dollars = 15, cur_dollars = 15}},
-    rarity = 2,
+    rarity = 3,
     blueprint_compat = true,
     cost = 5,
     loc_vars = function(self, info_queue, card)
@@ -625,6 +626,8 @@ local crimson = SMODS.Joker {
     end
 }
 
+
+
 -----------------
 -- Legendaries --
 -----------------
@@ -646,16 +649,16 @@ local potentia = SMODS.Joker {
     rarity = 4,
     atlas = "joker_atlas",
     cost = 50,
-    pos = {x=3,y=2},
-    soul_pos = {x=3,y=3},
+    pos = {x=2,y=2},
+    soul_pos = {x=2,y=3},
     config = {extra = {xmult = 5, mult = 500, dollars = 7, tarot_mult = 100, spectral_xmult = 15, planet_dollars = 3}},
     blueprint_compat = true,
     loc_vars = function(self, info_queue, card)
         return {vars = {
-        card.ability.extra.mult, 
-        card.ability.extra.xmult, 
+        card.ability.extra.mult,
+        card.ability.extra.xmult,
         card.ability.extra.dollars,
-        card.ability.extra.tarot_mult, 
+        card.ability.extra.tarot_mult,
         card.ability.extra.spectral_xmult,
         card.ability.extra.planet_dollars
     }}
@@ -768,15 +771,19 @@ local tristis = SMODS.Joker {
             "{C:green,s:1.3}#8# in #2#{} chance to multiply by {C:attention,s:1.3}#3#",
             "{C:green,s:1.3}#8# in #4#{} chance to multiply by {C:attention,s:1.3}#5#",
             "{C:green,s:1.3}#8# in #6#{} chance to multiply by {C:attention,s:1.3}#7#",
-            "Create {C:green,s:1.3}The Sky{} at end of shop"
+            "If played hand has exactly {C:attention}#9#{} cards, {C:green}double{} all listed probabilities",
+            "and consume 1 {C:green}Energy{}",
+            "Create {C:green,s:1.3}The Sky{} at end of shop",
+            "{X:green,C:white}Energy:#10#/3",
+            "{C:inactive}(Restores one energy at end of shop)"
         }
     },
     atlas = "joker_atlas",
     rarity = 4,
     cost = 50,
-    pos = {x=2,y=3},
-    soul_pos = {x=2,y=4},
-    config = {extra = {base_mult = 50, odds_1 = 2, mult_1 = 2, odds_2 = 4, mult_2 = 5, odds_3 = 8, mult_3 = 25}},
+    pos = {x=3,y=2},
+    soul_pos = {x=4,y=2},
+    config = {extra = {base_mult = 50, odds_1 = 2, mult_1 = 2, odds_2 = 4, mult_2 = 5, odds_3 = 8, mult_3 = 25, cards_req = 3, energy = 3}},
     blueprint_compat = true,
     loc_vars = function(self, info_queue, card)
         return {vars = {
@@ -787,7 +794,9 @@ local tristis = SMODS.Joker {
             card.ability.extra.mult_2,
             card.ability.extra.odds_3,
             card.ability.extra.mult_3,
-            G.GAME.probabilities.normal
+            G.GAME.probabilities.normal,
+            card.ability.extra.cards_req,
+            card.ability.extra.energy
         }}
     end,
     calculate = function(self, card, context)
@@ -819,7 +828,22 @@ local tristis = SMODS.Joker {
             end
         elseif context.ending_shop then
             amaz_create_card("Spectral","c_amazin_sky")
-            card_eval_status_text(context.blueprint_card or card, 'extra', nil, nil, nil, {message = "+1 Spectral", colour = G.C.spectral})
+            if card.ability.extra.energy < 3 then
+                card.ability.extra.energy = card.ability.extra.energy + 1
+            end
+            card_eval_status_text(context.blueprint_card or card, 'extra', nil, nil, nil, {message = "+1 Spectral", colour = G.C.SPECTRAL})
+        elseif context.before then
+            if #context.full_hand == 3 then
+                if card.ability.extra.energy > 0 then
+                    G.GAME.probabilities.normal = G.GAME.probabilities.normal * 2
+                    card.ability.extra.energy = card.ability.extra.energy - 1
+                    card_eval_status_text(context.blueprint_card or card, 'extra', nil, nil, nil,
+                        { message = "Double Probabilities!", colour = G.C.RED})
+                else
+                    card_eval_status_text(context.blueprint_card or card, 'extra', nil, nil, nil,
+                        { message = "No Energy!", colour = G.C.RED})
+                end
+            end
         end
     end
 }
@@ -876,8 +900,10 @@ local decorus = SMODS.Joker {
                 end
             end
         elseif context.ending_shop and not context.blueprint then
-            card.ability.extra.energy = card.ability.extra.energy + 1
-            card_eval_status_text(context.blueprint_card or card, 'extra', nil, nil, nil, {message = "+1 Energy"})
+            if card.ability.extra.energy < 3 then
+                card.ability.extra.energy = card.ability.extra.energy + 1
+                card_eval_status_text(context.blueprint_card or card, 'extra', nil, nil, nil, { message = "+1 Energy" })
+            end
         elseif context.before and not context.blueprint then
             local prev_enhanced_played = card.ability.extra.enhanced_cards_played
             for k, v in ipairs(context.full_hand) do
