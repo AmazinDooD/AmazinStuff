@@ -2,11 +2,10 @@
 --- MOD_NAME: Amazin Stuff
 --- MOD_ID: AmazinStuff
 --- MOD_AUTHOR: [AmazinDooD]
---- MOD_DESCRIPTION: A simple-ish mod with a bunch of my ideas. Requires THE OLD VERSION OF JenLib.
+--- MOD_DESCRIPTION: A simple-ish mod with a bunch of my ideas. Requires JenLib and CG223's RarityLib.
 --- BADGE_COLOR: 33CC94
+--- DEPENDENCIES: [JenLib, rarlib]
 --- PREFIX: amazin
---- DEPENDENCIES: [JenLib]
-
 
 SMODS.Atlas {
     key = "joker_atlas",
@@ -29,6 +28,60 @@ SMODS.Atlas {
     py = 34
 }
 
+SMODS.Atlas {
+    key = "no_art",
+    path = "missing_texture.png",
+    px = 71,
+    py = 95
+}
+
+SMODS.Atlas {
+    key = "special_atlas",
+    path = "special_atlas.png",
+    px = 71,
+    py = 95
+}
+
+-- custom rarity, thanks rarlib!
+
+CGLIBWEIGHTS = {
+    0.7,
+    0.25,
+    0.05,
+    mythic = 0.01,
+    awful = 0
+}
+
+local higher_than = 4
+if SMODS.Mods.Cryptid and SMODS.Mods.Cryptid.can_load then higher_than = "cry_exotic" end
+
+CGLIB.Rarity {
+    key = "amaz_mythic",
+    name = "Mythic",
+    color = HEX("e6a029"),
+    shopweight = 0.01,
+    oneHigher = higher_than
+}
+
+CGLIB.Rarity {
+    key = "amaz_awful",
+    name = "Awful",
+    color = HEX("d64d27"),
+    shopweight = 0,
+    oneHigher = 1
+}
+
+-- aliases so this mod is compatible with new jenlib
+-- (i am not retyping all of the functions)
+
+local function batchfind(needle, haystack)
+    return jl.bf(needle, haystack)
+end
+
+local function chance(name, probability, absolute)
+    return jl.chance(name, probability, absolute)
+end
+
 -- create a card
 local function amaz_create_card(card_type, key)
     if not batchfind(card_type, {"Spectral","Tarot","Planet","Joker"}) then return false end
@@ -42,6 +95,7 @@ local function amaz_create_card(card_type, key)
                 _card:add_to_deck()
                 G.consumeables:emplace(_card)
                 G.GAME.consumeable_buffer = 0
+                _card:start_materialize(nil, false, 2)
                 return true
             end)
         }))
@@ -55,6 +109,7 @@ local function amaz_create_card(card_type, key)
                 _card:add_to_deck()
                 G.jokers:emplace(_card)
                 G.GAME.joker_buffer = 0
+                _card:start_materialize(nil, false, 2)
                 return true
             end)
         }))
@@ -188,6 +243,18 @@ local function amaz_emult_to_xmult_table(emult, cur_mult, card, context)
         colour = G.C.DARK_EDITION
     }
 end
+
+local function amaz_end_of_round(context)
+    if context and context.end_of_round
+    and not context.game_over and not
+    context.individual and not
+    context.repetition and not
+    context.retrigger_joker then
+        return true
+    end
+    return false
+end
+
 
 local silhouette = SMODS.Joker {
     key = "silhouette",
@@ -626,7 +693,481 @@ local crimson = SMODS.Joker {
     end
 }
 
+local broken = SMODS.Joker {
+    key = "broken",
+    loc_txt = {
+        name = "Broken Joker",
+        text = {
+            "Earn {C:money}$nil{} dollars at end of round",
+            "Increases by {C:money}$nil{} for every joker from this mod",
+            " ",
+            "{C:inactive}[OR-FGEMF-20]"
+        }
+    },
+    config = {extra = {cur_dollars = 3, dollar_bonus = 3}},
+    atlas = "joker_atlas",
+    pos = {x=4,y=0},
+    discovered = false,
+    rarity = 1,
+    calc_dollar_bonus = function(self, card)
+        card.ability.extra.cur_dollars = 3
+        local amazin_jokers = { "j_amazin_silhouette", "j_amazin_consumer", "j_amazin_blank","j_amazin_poorly_drawn","j_amazin_monochrome","j_amazin_hat","j_amazin_radiating","j_amazin_stranger","j_amazin_marine","j_amazin_crimson","j_amazin_potentia","j_amazin_dolus","j_amazin_tristis","j_amazin_decorus","j_amazin_chroma" }
+        for k, v in ipairs(amazin_jokers) do
+            if amaz_has_joker(v) then
+                card.ability.extra.cur_dollars = card.ability.extra.cur_dollars + card.ability.extra.dollar_bonus
+            end
+        end
+        return card.ability.extra.cur_dollars
+    end
+}
 
+
+local heterochromia = SMODS.Joker {
+    key = "heterochromia",
+    loc_txt = {
+        name = "Heterochromia",
+        text = {
+            "{C:white,X:mult}X#1#{} Mult",
+            "Increases by {C:white,X:mult}X#2#{}",
+            "if scoring hand contains {C:attention}exactly two",
+            "different non-base enhancements or ranks"
+        }
+    },
+    config = {extra = {xmult = 1, xmult_inc = 0.25}},
+    atlas = "no_art",
+    discovered = false,
+    rarity = 2,
+    blueprint_compat = true,
+    loc_vars = function(self, info_queue, card)
+        return {vars = {card.ability.extra.xmult, card.ability.extra.xmult_inc}}
+    end,
+    calculate = function(self, card, context)
+        if context.before and not context.blueprint then
+            local seen_enhancements = {}
+            local seen_ranks = {}
+            for k, v in ipairs(context.scoring_hand) do
+                local v_rank = SMODS.Ranks[v.base.value].key
+                if v.ability.effect ~= "Base" and not batchfind(v.ability.effect, seen_enhancements) then
+                    seen_enhancements[#seen_enhancements+1] = v.ability.effect
+                end
+                if not batchfind(v_rank, seen_ranks) then
+                    seen_ranks[#seen_ranks+1] = v_rank
+                end
+            end
+            if #seen_ranks == 2 or #seen_enhancements == 2 then
+                card.ability.extra.xmult = card.ability.extra.xmult + card.ability.extra.xmult_inc
+                card_eval_status_text(card, 'extra', nil, nil, nil, {message = "Upgrade!"})
+            end
+        elseif context.joker_main then
+            return {
+                message = localize{type="variable",key='a_xmult',vars={card.ability.extra.xmult}},
+                Xmult_mod = card.ability.extra.xmult,
+                card = context.blueprint_card or card
+            }
+        end
+    end
+}
+--------------------
+-- Special Jokers --
+--------------------
+
+local slime_big = SMODS.Joker {
+    key = "slime_big",
+    loc_txt = {
+        name = "Slime",
+        text = {
+            "{C:blue}+#1#{} hands",
+            "{C:red}+#2#{} discards",
+            "Splits into two copies with half stats at end of round",
+            "Is {C:red}destroyed{} after four rounds"
+        }
+    },
+    config = {extra = {hands = 2, discards = 2, ready_to_add = false}},
+    atlas = "special_atlas",
+    pos = {x=0,y=0},
+    discovered = false,
+    rarity = 3,
+    loc_vars = function(self, info_queue, card)
+        return {vars={card.ability.extra.hands, card.ability.extra.discards}}
+    end,
+    calculate = function(self, card, context)
+        if amaz_end_of_round(context) then
+            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Split!", delay = 0.3})
+            G.E_MANAGER:add_event(Event({
+                trigger = 'after',
+                delay = 0.3,
+                blockable = false,
+                func = function()
+                    for i=1, 2 do
+                        amaz_create_card("Joker","j_amazin_slime_med")
+                    end
+                    play_sound('tarot1')
+                    card:start_dissolve(nil, false, 2)
+                    G.jokers:remove_card(card)
+                    card = nil
+                    return true;
+                end
+            }))
+        elseif context.setting_blind and card.ability.extra.ready_to_add then
+            ease_hands_played(card.ability.extra.hands)
+            ease_discard(card.ability.extra.discards)
+        end
+    end,
+    add_to_deck = function(self, card, from_debuff)
+        card.ability.extra.ready_to_add = true
+    end,
+    remove_from_deck = function(self, card, from_debuff)
+        ease_hands_played(-card.ability.extra.hands)
+        ease_discard(-card.ability.extra.discards)
+    end
+}
+
+local slime_med = SMODS.Joker {
+    key = "slime_med",
+    loc_txt = {
+        name = "Slime",
+        text = {
+            "{C:blue}+#1#{} hands",
+            "{C:red}+#2#{} discards",
+            "Splits into two copies with half stats at end of round",
+            "Is {C:red}destroyed{} after four rounds"
+        }
+    },
+    config = { extra = { hands = 1, discards = 1 } },
+    atlas = "special_atlas",
+    pos = { x = 1, y = 0 },
+    discovered = false,
+    rarity = 3,
+    loc_vars = function(self, info_queue, card)
+        return {vars={ card.ability.extra.hands, card.ability.extra.discards }}
+    end,
+    calculate = function(self, card, context)
+        if amaz_end_of_round(context) then
+            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Split!" ,delay=0.3})
+            G.E_MANAGER:add_event(Event({
+                trigger = 'after',
+                delay = 0.3,
+                blockable = false,
+                func = function()
+                    for i = 1, 2 do
+                        amaz_create_card("Joker", "j_amazin_slime_small")
+                    end
+                    play_sound('tarot1')
+                    card:start_dissolve(nil, false, 2)
+                    G.jokers:remove_card(card)
+                    card = nil
+                    return true;
+                end
+            }))
+        elseif context.setting_blind and card.ability.extra.ready_to_add then
+            ease_hands_played(card.ability.extra.hands)
+            ease_discard(card.ability.extra.discards)
+        end
+    end,
+    add_to_deck = function(self, card, from_debuff)
+        card.ability.extra.ready_to_add = true
+    end,
+    remove_from_deck = function(self, card, from_debuff)
+        ease_hands_played(-card.ability.extra.hands)
+        ease_discard(-card.ability.extra.discards)
+    end,
+    in_pool = function(self)
+        return false
+    end
+}
+
+local slime_small = SMODS.Joker {
+    key = "slime_small",
+    loc_txt = {
+        name = "Slime",
+        text = {
+            "{C:blue}+#1#{} hands",
+            "{C:red}+#2#{} discards",
+            "Splits into two copies with half stats at end of round",
+            "Is {C:red}destroyed{} after four rounds"
+        }
+    },
+    config = { extra = { hands = 0.5, discards = 0.5 } },
+    atlas = "special_atlas",
+    pos = { x = 2, y = 0 },
+    discovered = false,
+    rarity = 3,
+    loc_vars = function(self, info_queue, card)
+        return {vars={ card.ability.extra.hands, card.ability.extra.discards }}
+    end,
+    calculate = function(self, card, context)
+        if amaz_end_of_round(context) then
+            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Split!", delay = 0.3 })
+            G.E_MANAGER:add_event(Event({
+                trigger = 'after',
+                delay = 0.0,
+                blockable = false,
+                func = function()
+                    for i = 1, 2 do
+                        amaz_create_card("Joker", "j_amazin_slime_tiny")
+                    end
+                    play_sound('tarot1')
+                    card:start_dissolve(nil, false, 2)
+                    G.jokers:remove_card(card)
+                    card = nil
+                    return true;
+                end
+            }))
+        elseif context.setting_blind and card.ability.extra.ready_to_add then
+            ease_hands_played(card.ability.extra.hands)
+            ease_discard(card.ability.extra.discards)
+        end
+    end,
+    add_to_deck = function(self, card, from_debuff)
+        card.ability.extra.ready_to_add = true
+    end,
+    remove_from_deck = function(self, card, from_debuff)
+        ease_hands_played(-card.ability.extra.hands)
+        ease_discard(-card.ability.extra.discards)
+    end,
+    in_pool = function(self)
+        return false
+    end
+}
+
+local slime_tiny = SMODS.Joker {
+    key = "slime_tiny",
+    loc_txt = {
+        name = "Slime",
+        text = {
+            "{C:blue}+#1#{} hands",
+            "{C:red}+#2#{} discards",
+            "Splits into two copies with half stats at end of round",
+            "Is {C:red}destroyed{} after four rounds"
+        }
+    },
+    config = { extra = { hands = 0.25, discards = 0.25} },
+    atlas = "special_atlas",
+    pos = { x = 3, y = 0 },
+    discovered = false,
+    rarity = 3,
+    loc_vars = function(self, info_queue, card)
+        return {vars={ card.ability.extra.hands, card.ability.extra.discards }}
+    end,
+    calculate = function(self, card, context)
+        if amaz_end_of_round(context) then
+            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Killed!", delay = 0.3 })
+            G.E_MANAGER:add_event(Event({
+                trigger = 'after',
+                delay = 0.0,
+                blockable = false,
+                func = function()
+                    play_sound('tarot1')
+                    card:start_dissolve(nil, false, 2)
+                    G.jokers:remove_card(card)
+                    card = nil
+                    return true;
+                end
+            }))
+        elseif context.setting_blind and card.ability.extra.ready_to_add then
+            ease_hands_played(card.ability.extra.hands)
+            ease_discard(card.ability.extra.discards)
+        end
+    end,
+    add_to_deck = function(self, card, from_debuff)
+        card.ability.extra.ready_to_add = true
+    end,
+    remove_from_deck = function(self, card, from_debuff)
+        ease_hands_played(-card.ability.extra.hands)
+        ease_discard(-card.ability.extra.discards)
+    end,
+    in_pool = function(self)
+        return false
+    end
+}
+
+local potato = SMODS.Joker {
+    key = "potato",
+    loc_txt = {
+        name = "Potato",
+        text = {
+            "{X:mult,C:white}X#1#{} Mult, increases by",
+            "{X:mult,C:white}X#2#{} every round",
+            "This joker is {C:red}destroyed{} after 5 rounds",
+            "{C:inactive}(#3# remaining)"
+        }
+    },
+    config = {extra = {xmult = 2, xmult_inc = 1, rounds = 5}},
+    atlas = "special_atlas",
+    pos = {x=4,y=0},
+    discovered = false,
+    rarity = 3,
+    blueprint_compat = true,
+    loc_vars = function(self, info_queue, card)
+        return {vars = {card.ability.extra.xmult, card.ability.extra.xmult_inc, card.ability.extra.rounds}}
+    end,
+    calculate = function(self, card, context)
+        if context.joker_main then
+            return {
+                message = localize{type="variable",key="a_xmult",vars={card.ability.extra.xmult}},
+                Xmult_mod = card.ability.extra.xmult,
+                card = context.blueprint_card or card
+            }
+        elseif amaz_end_of_round(context) then
+            if card.ability.extra.rounds ~= 1 then
+                card.ability.extra.rounds = card.ability.extra.rounds - 1
+                card.ability.extra.xmult = card.ability.extra.xmult + card.ability.extra.xmult_inc
+                card_eval_status_text(card, 'extra', nil, nil, nil, {message = "Upgrade!", delay = 1})
+                card_eval_status_text(card, 'extra', nil, nil, nil, {message = card.ability.extra.rounds.." Remaining"})
+            else
+                card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Eaten!", delay = 0.3 })
+                G.E_MANAGER:add_event(Event({
+                    trigger = 'after',
+                    delay = 0.0,
+                    blockable = false,
+                    func = function()
+                        play_sound('tarot1')
+                        card:start_dissolve(nil, false, 2)
+                        G.jokers:remove_card(card)
+                        card = nil
+                        return true;
+                    end
+                }))
+            end
+        end
+    end
+}
+
+local poisonous = SMODS.Joker {
+    key = "poisonous_potato",
+    loc_txt = {
+        name = "Poisonous Potato",
+        text = {
+            "{X:inactive,C:red}X#1#{} Mult",
+            "When sold or at end of round,",
+            "{C:red}destroys joker to the left{} and itself",
+            "{C:inactive}(If there are no jokers to the left, destoys one to the right)"
+        }
+    },
+    config = {extra = {xmult = 0.7}},
+    atlas = "special_atlas",
+    pos = {x=0, y=1},
+    discovered = false,
+    rarity = "amaz_awful",
+    loc_vars = function(self, info_queue, card)
+        return {vars = {card.ability.extra.xmult}}
+    end,
+    calculate = function(self, card, context)
+        if context.joker_main then
+            return {
+                message = localize { type = "variable", key = "a_xmult", vars = { card.ability.extra.xmult } },
+                Xmult_mod = card.ability.extra.xmult,
+                card = card
+            }
+        elseif context.selling_self or amaz_end_of_round(context) then
+            local myself = nil
+            local card_to_destroy = nil
+            local card_obj_to_destroy = nil
+            for i=1, #G.jokers.cards do
+                if G.jokers.cards[i] == card then
+                    myself = i
+                    break
+                end
+            end
+            if myself == 1 then
+                card_to_destroy = 2
+            else
+                card_to_destroy = myself-1
+            end
+            card_obj_to_destroy = G.jokers.cards[card_to_destroy]
+            if card_obj_to_destroy ~= nil then
+                card_obj_to_destroy.getting_sliced = true
+                G.GAME.joker_buffer = G.GAME.joker_buffer - 1
+            end
+            G.E_MANAGER:add_event(Event({
+                trigger = 'after',
+                delay = 0.0,
+                blockable = false,
+                func = function()
+                    play_sound('tarot1')
+                    card:start_dissolve(nil, false, 2)
+                    if card_obj_to_destroy ~= nil then
+                        card_obj_to_destroy:start_dissolve(nil, false, 2)
+                    end
+                    G.jokers:remove_card(card)
+                    card = nil
+                    return true;
+                end
+            }))
+        end
+    end,
+    in_pool = function(self)
+        return false
+    end
+}
+
+local hoe = SMODS.Joker {
+    key = "hoe",
+    loc_txt = {
+        name = "Stone Hoe",
+        text = {
+            "Sell this card to have a",
+            "{C:green}#1#%{} chance to create a Potato and a",
+            "{C:green}#2#%{} chance to create a Poisonous Potato"
+        }
+    },
+    config = {extra = {potato_chance = 0.75, poisonous_chance = 0.25}},
+    atlas = "special_atlas",
+    pos = {x=1,y=1},
+    discovered = false,
+    rarity = 2,
+    loc_vars = function(self, info_queue, card)
+        return {vars = {card.ability.extra.potato_chance * 100, card.ability.extra.poisonous_chance * 100}}
+    end,
+    calculate = function(self, card, context)
+        if context.selling_self then
+            if chance("hoe", card.ability.extra.potato_chance, false) then
+                amaz_create_card("Joker", "j_amazin_potato")
+            else
+                amaz_create_card("Joker","j_amazin_poisonous_potato")
+            end
+        end
+    end
+}
+
+local potatotem = SMODS.Joker {
+    key = "potatotem",
+    loc_txt = {
+        name = "Potatotem",
+        text = {
+            "Sell this card to create one {C:green}Potato{} for",
+            "{C:attention}every round{} this joker has been held",
+            "{C:inactive}(Cannot be higher than #1#, currently #2#)",
+            "{C:green}1 in #3#{} chance to create a poisonous potato instead",
+            "{C:inactive}(This chance cannot be doubled)"
+        }
+    },
+    config = {extra = {max_potatoes = 5, potatoes = 0, poisonous_chance = 10}},
+    atlas = "no_art",
+    discovered = false,
+    rarity = 3,
+    loc_vars = function(self, info_queue, card)
+        return {vars = {
+        card.ability.extra.max_potatoes,
+        card.ability.extra.potatoes,
+        card.ability.extra.poisonous_chance
+    }}
+    end,
+    calculate = function(self, card, context)
+        if amaz_end_of_round(context) and card.ability.extra.potatoes ~= card.ability.extra.max_potatoes then
+            card.ability.extra.potatoes = card.ability.extra.potatoes + 1
+            card_eval_status_text(card, 'extra', nil, nil, nil, {message = "Upgrade!"})
+        elseif context.selling_self then
+            for i=1, card.ability.extra.potatoes do
+                if chance("poisonous", card.ability.extra.poisonous_chance, true) then
+                    amaz_create_card("Joker","j_amazin_poisonous_potato")
+                else
+                    amaz_create_card("Joker","j_amazin_potato")
+                end
+            end
+        end
+    end
+}
 
 -----------------
 -- Legendaries --
@@ -734,7 +1275,7 @@ local dolus = SMODS.Joker {
             elseif random_num < 0.5 then
                 amaz_dolus_create_cards(card.ability.extra.spectrals, "Spectral")
                 card_eval_status_text(context.blueprint_card or card, 'extra', nil, nil, nil,
-                    { message = "+" .. card.ability.extra.spectrals .. " Spectrals", colour = G.C.Spectrals })
+                    { message = "+" .. card.ability.extra.spectrals .. " Spectrals" })
             elseif random_num < 0.75 then
                 card.ability.extra.discards_to_remove = card.ability.extra.discards_to_remove + 1
                 ease_discard(card.ability.extra.discards)
@@ -931,7 +1472,6 @@ local decorus = SMODS.Joker {
 ---this thing---
 ----------------
 
-
     local chroma = SMODS.Joker {
         key = "chroma",
         loc_txt = {
@@ -965,7 +1505,7 @@ local decorus = SMODS.Joker {
             nine_emult = 2,
             nine_dollars = 1,
         }},
-        rarity = 'cry_exotic',
+        rarity = "amaz_mythic",
         cost = 250,
         blueprint_compat = true,
         loc_vars = function(self, info_queue, card)
