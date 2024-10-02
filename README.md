@@ -4,16 +4,17 @@
 ### Also, there is currently no 2x artwork.
 
 # AmazinStuff
-A simple Balatro mod that adds some of my ideas. This mod requries JenLib.
+A simple Balatro mod that adds some of my ideas. This mod requries JenLib as well as CG223's RarityLib.
 
 ## Contents
 
 ### Jokers
-2 Common Jokers  
-6 Uncommon Jokers  
-2 Rare Jokers  
+1 Awful Joker
+3 Common Jokers  
+8 Uncommon Jokers  
+8 Rare Jokers  
 4 Legendary Jokers  
-1 Exotic Joker (requires Cryptid for the rarity)  
+1 Mythic Joker  
 
 ### Consumeables
 2 Spectral Cards
