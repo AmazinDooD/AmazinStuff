@@ -9,7 +9,7 @@ A simple Balatro mod that adds some of my ideas. This mod requries JenLib as wel
 ## Contents
 
 ### Jokers
-1 Awful Joker
+1 Awful Joker  
 3 Common Jokers  
 8 Uncommon Jokers  
 8 Rare Jokers  
