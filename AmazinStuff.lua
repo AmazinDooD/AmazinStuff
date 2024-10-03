@@ -48,19 +48,20 @@ CGLIBWEIGHTS = {
     0.7,
     0.25,
     0.05,
-    mythic = 0.01,
+    mythic = 0.009,
+    pristine = 0.03,
     awful = 0
 }
 
-local higher_than = 4
-if SMODS.Mods.Cryptid and SMODS.Mods.Cryptid.can_load then higher_than = "cry_exotic" end
+local mythic_higher_than, pristine_higher_than = nil, nil
+if SMODS.Mods.Cryptid and SMODS.Mods.Cryptid.can_load then mythic_higher_than = "cry_exotic"; pristine_higher_than = "cry_epic" end
 
 CGLIB.Rarity {
     key = "amaz_mythic",
     name = "Mythic",
     color = HEX("e6a029"),
     shopweight = 0.01,
-    oneHigher = higher_than
+    oneHigher = mythic_higher_than
 }
 
 CGLIB.Rarity {
@@ -69,6 +70,14 @@ CGLIB.Rarity {
     color = HEX("d64d27"),
     shopweight = 0,
     oneHigher = 1
+}
+
+CGLIB.Rarity{
+    key = "amaz_pristine",
+    name = "Pristine",
+    color = HEX("1a4fc9"),
+    shopweight = 0.03,
+    oneHigher = pristine_higher_than
 }
 
 -- aliases so this mod is compatible with new jenlib
@@ -95,7 +104,6 @@ local function amaz_create_card(card_type, key)
                 _card:add_to_deck()
                 G.consumeables:emplace(_card)
                 G.GAME.consumeable_buffer = 0
-                _card:start_materialize(nil, false, 2)
                 return true
             end)
         }))
@@ -109,7 +117,6 @@ local function amaz_create_card(card_type, key)
                 _card:add_to_deck()
                 G.jokers:emplace(_card)
                 G.GAME.joker_buffer = 0
-                _card:start_materialize(nil, false, 2)
                 return true
             end)
         }))
@@ -728,9 +735,8 @@ local heterochromia = SMODS.Joker {
         name = "Heterochromia",
         text = {
             "{C:white,X:mult}X#1#{} Mult",
-            "Increases by {C:white,X:mult}X#2#{}",
-            "if scoring hand contains {C:attention}exactly two",
-            "different non-base enhancements or ranks"
+            "Increases by {C:white,X:mult}X#2#{} if scoring hand contains",
+            "{C:attention}exactly two different non-base enhancements or ranks"
         }
     },
     config = {extra = {xmult = 1, xmult_inc = 0.25}},
@@ -792,7 +798,7 @@ local slime_big = SMODS.Joker {
     end,
     calculate = function(self, card, context)
         if amaz_end_of_round(context) then
-            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Split!", delay = 0.3})
+            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Split!"})
             G.E_MANAGER:add_event(Event({
                 trigger = 'after',
                 delay = 0.3,
@@ -843,7 +849,7 @@ local slime_med = SMODS.Joker {
     end,
     calculate = function(self, card, context)
         if amaz_end_of_round(context) then
-            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Split!" ,delay=0.3})
+            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Split!"})
             G.E_MANAGER:add_event(Event({
                 trigger = 'after',
                 delay = 0.3,
@@ -897,7 +903,7 @@ local slime_small = SMODS.Joker {
     end,
     calculate = function(self, card, context)
         if amaz_end_of_round(context) then
-            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Split!", delay = 0.3 })
+            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Split!"})
             G.E_MANAGER:add_event(Event({
                 trigger = 'after',
                 delay = 0.0,
@@ -951,7 +957,7 @@ local slime_tiny = SMODS.Joker {
     end,
     calculate = function(self, card, context)
         if amaz_end_of_round(context) then
-            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Killed!", delay = 0.3 })
+            card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Killed!"})
             G.E_MANAGER:add_event(Event({
                 trigger = 'after',
                 delay = 0.0,
@@ -1163,6 +1169,126 @@ local potatotem = SMODS.Joker {
                     amaz_create_card("Joker","j_amazin_poisonous_potato")
                 else
                     amaz_create_card("Joker","j_amazin_potato")
+                end
+            end
+        end
+    end
+}
+
+
+---------------
+-- Pristines --
+---------------
+
+
+local sacrifice = SMODS.Joker {
+    key = "sacrifice",
+    loc_txt = {
+        name = "Sacrifice",
+        text = {
+            "{X:dark_edition,C:white}^#1#{} Mult",
+            "At end of round, {C:red}destroys all other jokers",
+            "and gains {X:dark_edition,C:white}^#2#{} Mult",
+            "for each joker destroyed"
+        }
+    },
+    config = {extra = {emult = 1, emult_inc = 0.3}},
+    atlas = "joker_atlas",
+    pos = {x=2,y=4},
+    discovered = false,
+    rarity = "amaz_pristine",
+    loc_vars = function(self, info_queue, card)
+        return {vars = {card.ability.extra.emult, card.ability.extra.emult_inc}}
+    end,
+    calculate = function(self, card, context)
+        if context.joker_main and card.ability.extra.emult ~= 1 then
+            return amaz_emult_to_xmult_table(card.ability.extra.emult, mult, card, context)
+        elseif amaz_end_of_round(context) then
+            for k, v in ipairs(G.jokers.cards) do
+                if v ~= card then
+                    card_eval_status_text(v, 'extra', nil, nil, nil, { message = "Sacrificed!"})
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'after',
+                        delay = 0.0,
+                        blockable = false,
+                        func = function()
+                            play_sound('tarot1')
+                            v:start_dissolve(nil, false, 4)
+                            G.jokers:remove_card(v)
+                            v = nil
+                            return true;
+                        end
+                    }))
+                    card.ability.extra.emult = card.ability.extra.emult + card.ability.extra.emult_inc
+                end
+            end
+        end
+    end
+}
+
+local eternal = SMODS.Joker {
+    key = "eternal_cycle",
+    loc_txt = {
+        name = "Eternal Cycle",
+        text = {
+            "Retrigger all cards one time for every",
+            "{C:attention}Rare or Pristine{} Joker, twice for every",
+            "{C:attention}Legendary{} Joker and thrice for every",
+            "{C:attention}Mythic{} Joker"
+        }
+    },
+    config = {extra = {rare_triggers = 1, legendary_triggers = 2, mythic_triggers = 3}},
+    atlas = "joker_atlas",
+    pos = {x=3,y=3},
+    discovered = false,
+    rarity = "amaz_pristine",
+    blueprint_compat = true,
+    calculate = function(self, card, context)
+        if context.repetition and context.cardarea == G.play then
+            for k, v in ipairs(G.jokers.cards) do
+                local v_rarity = v.config.center.rarity
+                if v_rarity == 3 or v_rarity == "amaz_mythic" then
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'before',
+                        delay = 0.0,
+                        func = (function()
+                            v:juice_up(0.3, 0.4)
+                            return true
+                        end)
+                    }))
+                    return {
+                        message = localize('k_again_ex'),
+                        repetitions = card.ability.extra.rare_triggers,
+                        card = context.blueprint_card or card
+                    }
+                elseif v_rarity == 4 then
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'before',
+                        delay = 0.0,
+                        func = (function()
+                            v:juice_up(0.3, 0.4)
+                            return true
+                        end)
+                    }))
+                    return {
+                        message = localize('k_again_ex'),
+                        repetitions = card.ability.extra.legendary_triggers,
+                        card = context.blueprint_card or card
+                    }
+                elseif v_rarity == "amaz_mythic" then
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'before',
+                        delay = 0.0,
+                        func = (function()
+                            v:juice_up(0.3, 0.4)
+                            return true
+                        end)
+                    }))
+                    return {
+                        message = localize('k_again_ex'),
+                        repetitions = card.ability.extra.mythic_triggers,
+                        card = context.blueprint_card or card
+                    }
                 end
             end
         end
@@ -1485,9 +1611,9 @@ local decorus = SMODS.Joker {
                 "All {C:green}Fours{} create one random {C:tarot,s:1.7}Planet",
                 "All {C:green}Fives{} create one random {C:tarot,s:1.7}Tarot",
                 "All {C:green}Sixes{} with enhancements create one random {C:tarot,s:1.7}Spectral",
-                "All {C:green}Sevens{} give {C:attention,s:1.7}+#6# hand size{} until end of round {C:inactive}(Does not apply to retriggers)",
-                "All {C:green}Eights{} are retriggered {C:attention,s:1.7}#7#{} extra times",
-                "All {C:green}Nines{} give {X:dark_edition,C:white,s:1.7}^#8#{} Mult, {C:mult,s:1.2}BUT{} take {C:money}$#9#"
+                "All {C:green}Sevens{} do {s:1.7}nothing{} :)",
+                "All {C:green}Eights{} are retriggered {C:attention,s:1.7}#6#{} extra times",
+                "All {C:green}Nines{} give {X:dark_edition,C:white,s:1.7}^#7#{} Mult, {C:mult,s:1.2}BUT{} take {C:money}$#8#"
             }
         },
         atlas = "joker_atlas",
@@ -1499,8 +1625,6 @@ local decorus = SMODS.Joker {
             ace_xmult = 500,
             two_chips = 1000,
             three_dollars = 10,
-            seven_hand_size = 1,
-            seven_cur_hand_size = 0,
             eight_retriggers = 2,
             nine_emult = 2,
             nine_dollars = 1,
@@ -1515,7 +1639,6 @@ local decorus = SMODS.Joker {
                 card.ability.extra.ace_xmult,
                 card.ability.extra.two_chips,
                 card.ability.extra.three_dollars,
-                card.ability.extra.seven_hand_size,
                 card.ability.extra.eight_retriggers,
                 card.ability.extra.nine_emult,
                 card.ability.extra.nine_dollars
@@ -1550,7 +1673,7 @@ local decorus = SMODS.Joker {
                     elseif card_rank == "2" then
                         return {
                             message = localize { type = 'variable', key = 'a_chips', vars = { card.ability.extra.two_chips } },
-                            x_mult = card.ability.extra.two_chips,
+                            chips = card.ability.extra.two_chips,
                             card = context.blueprint_card or card
                         }
                     elseif card_rank == "3" then
@@ -1568,19 +1691,14 @@ local decorus = SMODS.Joker {
                         amaz_create_random_cards(1, "Spectral")
                         card_eval_status_text(context.blueprint_card or card, 'extra', nil, nil, nil,
                         { message = "+1 Spectral" })
-                    elseif card_rank == "7" and not context.repetition then
-                        G.hand:change_size(card.ability.extra.seven_hand_size)
-                        card.ability.extra.seven_cur_hand_size = card.ability.extra.seven_cur_hand_size + card.ability.extra.seven_hand_size
-                        card_eval_status_text(context.blueprint_card or card, 'extra', nil, nil, nil,
-                        { message = "+1 Hand Size" })
                     elseif card_rank == "9" then
                         ease_dollars(-card.ability.extra.nine_dollars)
-                        return amaz_emult_to_xmult_table(card.ability.extra.nine_emult, mult, card, context)
+                        return {
+                            message = amaz_format_emult(card.ability.extra.nine_emult),
+                            x_mult = amaz_emult_to_xmult_num(card.ability.extra.nine_emult, mult),
+                            card = context.blueprint_card or card
+                        }
                     end
-                elseif context.ending_shop then
-                    G.hand:change_size(-card.ability.extra.seven_cur_hand_size)
-                    card.ability.extra.seven_cur_hand_size = 0
-                    card_eval_status_text(card, 'extra', nil, nil, nil, { message = "Hand Size Reset", colour = G.C.RED})
                 end
             end
         end
