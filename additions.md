@@ -2,43 +2,28 @@
 # THIS FILE CONTAINS SPOILERS FOR ALL OF THE JOKERS IN THIS MOD
 # Scroll down for the spoilers anyways
 # ────────────────────────────────────────────
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
+⠀
 # Jokers
 
 ## Common Jokers
