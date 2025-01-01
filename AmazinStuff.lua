@@ -7,6 +7,8 @@
 --- DEPENDENCIES: [JenLib, rarlib]
 --- PREFIX: amazin
 
+-- deprecated header, i know, i know 
+
 SMODS.Atlas {
     key = "joker_atlas",
     path = "joker_atlas.png",
@@ -42,6 +44,13 @@ SMODS.Atlas {
     py = 95
 }
 
+SMODS.Atlas {
+    key = "tags",
+    path = "tags.png",
+    px = 34,
+    py = 34
+}
+
 -- custom rarity, thanks rarlib!
 
 CGLIBWEIGHTS = {
@@ -54,7 +63,10 @@ CGLIBWEIGHTS = {
 }
 
 local mythic_higher_than, pristine_higher_than = nil, nil
-if SMODS.Mods.Cryptid and SMODS.Mods.Cryptid.can_load then mythic_higher_than = "cry_exotic"; pristine_higher_than = "cry_epic" end
+if next(SMODS.find_mod("Cryptid")) then
+    mythic_higher_than = "cry_exotic"
+    pristine_higher_than = "cry_epic"
+else pristine_higher_than = 4 end
 
 CGLIB.Rarity {
     key = "amaz_mythic",
@@ -72,7 +84,7 @@ CGLIB.Rarity {
     oneHigher = 1
 }
 
-CGLIB.Rarity{
+CGLIB.Rarity {
     key = "amaz_pristine",
     name = "Pristine",
     color = HEX("1a4fc9"),
@@ -80,18 +92,22 @@ CGLIB.Rarity{
     oneHigher = pristine_higher_than
 }
 
+SMODS.Sound {
+    key = "mythic",
+    path = "amaz_mythic.ogg"
+}
+
+---------------
+-- Functions --
+---------------
+
 -- aliases so this mod is compatible with new jenlib
 -- (i am not retyping all of the functions)
-
-local function batchfind(needle, haystack)
-    return jl.bf(needle, haystack)
-end
-
-local function chance(name, probability, absolute)
-    return jl.chance(name, probability, absolute)
-end
+local function batchfind(n,h) return jl.bf(n,h) end
+local function chance(n,p,a) return jl.chance(n,p,a) end
 
 -- create a card
+-- use SMODS.add_card{}: https://github.com/Steamopollys/Steamodded/wiki/Utility#mod-facing-utilities
 local function amaz_create_card(card_type, key)
     if not batchfind(card_type, {"Spectral","Tarot","Planet","Joker"}) then return false end
     if batchfind(card_type, {"Spectral","Tarot","Planet"}) then
@@ -123,14 +139,18 @@ local function amaz_create_card(card_type, key)
     end
 end
 
-local function amaz_has_joker(joker)
-    for k, v in ipairs(G.jokers.cards) do
+local function amaz_count_joker(joker)
+    local count = 0
+    for _, v in ipairs(G.jokers.cards) do
         if v.ability.set == "Joker" and v.config.center_key == joker then
-            return true
+            count = count + 1
         end
     end
-    return false
+    return count
 end
+
+-- alias
+local function amaz_has_joker(joker) return amaz_count_joker(joker) ~= 0 end
 
 local function amaz_dolus_create_cards(num, card_type)
     if not batchfind(card_type, {"Spectral","Planet","Tarot","Joker"}) then return false end
@@ -233,9 +253,7 @@ local function amaz_create_random_cards(num, card_type)
     end
 end
 
-local function amaz_format_emult(num)
-    return "^"..num.." Mult"
-end
+local function amaz_format_emult(num) return "^"..num.." Mult" end
 
 local function amaz_emult_to_xmult_num(emult, cur_mult)
     if emult == 0 or emult == 1 then return emult end
@@ -247,7 +265,7 @@ local function amaz_emult_to_xmult_table(emult, cur_mult, card, context)
         message = amaz_format_emult(emult),
         Xmult_mod = amaz_emult_to_xmult_num(emult, cur_mult),
         card = context.blueprint_card or card,
-        colour = G.C.DARK_EDITION
+        color = G.C.DARK_EDITION
     }
 end
 
@@ -262,6 +280,95 @@ local function amaz_end_of_round(context)
     return false
 end
 
+local function cae(card) return card.ability.extra end
+
+------------
+-- Others --
+------------
+
+SMODS.Tag {
+    key = "quad",
+    loc_txt = {
+        name = "Quad Tag",
+        text = {
+            "Creates 2 Tarots, 1 Planet",
+            "and 1 Spectral card, all of which are Negative"
+        }
+    },
+    atlas = "tags",
+    discovered = false,
+    apply = function(self, tag, context)
+        SMODS.create_card { set = "Tarot", edition = "Negative" }
+        SMODS.create_card { set = "Tarot", edition = "Negative" }
+        SMODS.create_card { set = "Planet", edition = "Negative" }
+        SMODS.create_card { set = "Spectral", edition = "Negative" }
+    end
+}
+
+-----------------
+-- Consumables --
+-----------------
+
+local unknown = SMODS.Consumable {
+    key = "unknown",
+    set = 'Spectral',
+    loc_txt = {
+        name = "The Unknown",
+        text = {
+            "{C:green}15%{} chance for {C:money}$20",
+            "{C:green}35%{} chance for {C:money}$5",
+            "{C:green}35%{} chance for {C:money}-$5",
+            "{C:green}15%{} chance for {C:money}-$25",
+            "{C:inactive}(Requires $#1# to use)"
+        }
+    },
+    atlas = "consumable_atlas",
+    config = { extra = { min_money = 10 } },
+    pos = { x = 0, y = 0 },
+    loc_vars = function(self, info_queue, card)
+        return { vars = { card.ability.extra.min_money } }
+    end,
+    can_use = function(self, card)
+        return G.GAME.dollars >= card.ability.extra.min_money
+    end,
+    use = function(self, card, area, copier)
+        local random_num = pseudorandom("c_unknown")
+        if random_num < 0.15 then
+            ease_dollars(25)
+        elseif random_num < 0.5 then
+            ease_dollars(5)
+        elseif random_num < 0.85 then
+            ease_dollars(-5)
+        else
+            ease_dollars(-25)
+        end
+    end
+}
+
+local sky = SMODS.Consumable {
+    key = "sky",
+    set = "Spectral",
+    loc_txt = {
+        name = "The Sky",
+        text = {
+            "Create three random {C:dark_edition}Negative",
+            "{C:green}Planet{} cards"
+        }
+    },
+    atlas = "consumable_atlas",
+    pos = { x = 1, y = 0 },
+    config = { extra = { planets = 3 } },
+    can_use = function(self, card)
+        return true
+    end,
+    use = function(self, card, area, copier)
+        amaz_dolus_create_cards(card.ability.extra.planets, "Planet")
+    end
+}
+
+---------------------------
+-- Common to Rare Jokers --
+---------------------------
 
 local silhouette = SMODS.Joker {
     key = "silhouette",
@@ -306,7 +413,7 @@ local consumer = SMODS.Joker {
         name = 'The Consumer',
         text = {
         "This joker gains {X:mult,C:white}X#1#{} Mult", 
-        'when a joker is sold.', 
+        'when a joker is sold.',
         "{C:inactive}Currently {X:mult,C:white}X#2#{C:inactive} Mult",
         "{C:red}#3# {C:blue}hand{} every round",
         " ",
@@ -416,7 +523,7 @@ local poorly_drawn = SMODS.Joker {
             return {
                 message = localize{type='variable',key = 'a_mult',vars = {card.ability.extra.mult}},
                 mult_mod = card.ability.extra.mult,
-                card = card
+                card = context.blueprint_card or card
             }
         end
     end
@@ -458,7 +565,7 @@ local monochrome = SMODS.Joker {
                     card = card
                 }
             end
-        elseif context.joker_main then
+        elseif context.joker_main and card.ability.extra.mult ~= 0 then
             return {
                 message = localize{type='variable',key='a_mult',vars={card.ability.extra.mult}},
                 mult_mod = card.ability.extra.mult,
@@ -540,63 +647,6 @@ local radiating = SMODS.Joker {
     end
 }
 
-local unknown = SMODS.Consumable {
-    key = "unknown",
-    set = 'Spectral',
-    loc_txt = {
-        name = "The Unknown",
-        text = {
-            "{C:green}15%{} chance for {C:money}$20",
-            "{C:green}35%{} chance for {C:money}$5",
-            "{C:green}35%{} chance for {C:money}-$5",
-            "{C:green}15%{} chance for {C:money}-$25",
-            "{C:inactive}(Requires $#1# to use)"
-        }
-    },
-    atlas = "consumable_atlas",
-    config = {extra = {min_money = 10}},
-    pos = {x=0,y=0},
-    loc_vars = function(self, info_queue, card)
-        return {vars = {card.ability.extra.min_money}}
-    end,
-    can_use = function(self, card)
-        return G.GAME.dollars >= card.ability.extra.min_money
-    end,
-    use = function(self, card, area, copier)
-        local random_num = pseudorandom("c_unknown")
-        if random_num < 0.15 then
-            ease_dollars(25)
-        elseif random_num < 0.5 then
-            ease_dollars(5)
-        elseif random_num < 0.85 then
-            ease_dollars(-5)
-        else
-            ease_dollars(-25)
-        end
-    end
-}
-
-local sky = SMODS.Consumable {
-    key = "sky",
-    set = "Spectral",
-    loc_txt = {
-        name = "The Sky",
-        text = {
-            "Create three random {C:dark_edition}Negative",
-            "{C:green}Planet{} cards"
-        }
-    },
-    atlas = "consumable_atlas",
-    pos = {x=1,y=0},
-    config = {extra = {planets = 3}},
-    can_use = function(self, card)
-        return true
-    end,
-    use = function(self, card, area, copier)
-        amaz_dolus_create_cards(card.ability.extra.planets, "Planet")
-    end
-}
-
 local stranger = SMODS.Joker {
     key = "stranger",
     loc_txt = {
@@ -611,6 +661,12 @@ local stranger = SMODS.Joker {
     atlas = "joker_atlas",
     pos = {x=1,y=2},
     rarity = 3,
+    loc_vars = function(self, info_queue, card) 
+        info_queue[#info_queue+1] = {
+            set = "Spectral",
+            key = "j_amazin_unknown"
+        }
+    end,
     calculate = function(self, card, context)
         if context.before and #context.full_hand == #context.scoring_hand then
             amaz_create_card("Spectral","c_amazin_unknown")
@@ -718,7 +774,7 @@ local broken = SMODS.Joker {
     rarity = 1,
     calc_dollar_bonus = function(self, card)
         card.ability.extra.cur_dollars = 3
-        local amazin_jokers = { "j_amazin_silhouette", "j_amazin_consumer", "j_amazin_blank","j_amazin_poorly_drawn","j_amazin_monochrome","j_amazin_hat","j_amazin_radiating","j_amazin_stranger","j_amazin_marine","j_amazin_crimson","j_amazin_potentia","j_amazin_dolus","j_amazin_tristis","j_amazin_decorus","j_amazin_chroma" }
+        local amazin_jokers = { "j_amazin_silhouette", "j_amazin_consumer", "j_amazin_blank","j_amazin_poorly_drawn","j_amazin_monochrome","j_amazin_hat","j_amazin_radiating","j_amazin_stranger","j_amazin_marine","j_amazin_crimson","j_amazin_potentia","j_amazin_dolus","j_amazin_tristis","j_amazin_decorus","j_amazin_chroma","j_amazin_blahaj" }
         for k, v in ipairs(amazin_jokers) do
             if amaz_has_joker(v) then
                 card.ability.extra.cur_dollars = card.ability.extra.cur_dollars + card.ability.extra.dollar_bonus
@@ -772,6 +828,20 @@ local heterochromia = SMODS.Joker {
             }
         end
     end
+}
+
+local protector = SMODS.Joker {
+    key = "protector",
+    loc_txt = {
+        name = "Protector",
+        text = {
+            "One random card in final hand of round",
+            "becomes "
+        }
+    },
+    atlas = "joker_atlas",
+    pos = {x=4, y=1},
+
 }
 --------------------
 -- Special Jokers --
@@ -844,6 +914,7 @@ local slime_med = SMODS.Joker {
     pos = { x = 1, y = 0 },
     discovered = false,
     rarity = 3,
+    no_collection = true,
     loc_vars = function(self, info_queue, card)
         return {vars={ card.ability.extra.hands, card.ability.extra.discards }}
     end,
@@ -877,9 +948,7 @@ local slime_med = SMODS.Joker {
         ease_hands_played(-card.ability.extra.hands)
         ease_discard(-card.ability.extra.discards)
     end,
-    in_pool = function(self)
-        return false
-    end
+    in_pool = false
 }
 
 local slime_small = SMODS.Joker {
@@ -898,6 +967,7 @@ local slime_small = SMODS.Joker {
     pos = { x = 2, y = 0 },
     discovered = false,
     rarity = 3,
+    no_collection = true,
     loc_vars = function(self, info_queue, card)
         return {vars={ card.ability.extra.hands, card.ability.extra.discards }}
     end,
@@ -931,9 +1001,7 @@ local slime_small = SMODS.Joker {
         ease_hands_played(-card.ability.extra.hands)
         ease_discard(-card.ability.extra.discards)
     end,
-    in_pool = function(self)
-        return false
-    end
+    in_pool = false
 }
 
 local slime_tiny = SMODS.Joker {
@@ -952,6 +1020,7 @@ local slime_tiny = SMODS.Joker {
     pos = { x = 3, y = 0 },
     discovered = false,
     rarity = 3,
+    no_collection = true,
     loc_vars = function(self, info_queue, card)
         return {vars={ card.ability.extra.hands, card.ability.extra.discards }}
     end,
@@ -982,9 +1051,7 @@ local slime_tiny = SMODS.Joker {
         ease_hands_played(-card.ability.extra.hands)
         ease_discard(-card.ability.extra.discards)
     end,
-    in_pool = function(self)
-        return false
-    end
+    in_pool = false
 }
 
 local potato = SMODS.Joker {
@@ -1102,9 +1169,7 @@ local poisonous = SMODS.Joker {
             }))
         end
     end,
-    in_pool = function(self)
-        return false
-    end
+    in_pool = false
 }
 
 local hoe = SMODS.Joker {
@@ -1247,7 +1312,7 @@ local eternal = SMODS.Joker {
         if context.repetition and context.cardarea == G.play then
             for k, v in ipairs(G.jokers.cards) do
                 local v_rarity = v.config.center.rarity
-                if v_rarity == 3 or v_rarity == "amaz_mythic" then
+                if v_rarity == 3 or v_rarity == "amaz_pristine" then
                     G.E_MANAGER:add_event(Event({
                         trigger = 'before',
                         delay = 0.0,
@@ -1275,7 +1340,7 @@ local eternal = SMODS.Joker {
                         repetitions = card.ability.extra.legendary_triggers,
                         card = context.blueprint_card or card
                     }
-                elseif v_rarity == "amaz_mythic" then
+                elseif v_rarity == "amaz_mythic" or (next(SMODS.find_mod("Cryptid")) and v_rarity == "cry_exotic") then
                     G.E_MANAGER:add_event(Event({
                         trigger = 'before',
                         delay = 0.0,
@@ -1318,7 +1383,7 @@ local potentia = SMODS.Joker {
     cost = 50,
     pos = {x=2,y=2},
     soul_pos = {x=2,y=3},
-    config = {extra = {xmult = 5, mult = 500, dollars = 7, tarot_mult = 100, spectral_xmult = 15, planet_dollars = 3}},
+    config = {extra = {xmult = 5, mult = 500, dollars = 7, tarot_mult = 100, spectral_xmult = 10, planet_dollars = 3}},
     blueprint_compat = true,
     loc_vars = function(self, info_queue, card)
         return {vars = {
@@ -1371,7 +1436,7 @@ local dolus = SMODS.Joker {
             "{C:inactive,s:0.7}(Equal chance for each)",
             "Earn {C:money,s:1.3}$#1#{}",
             "Create {C:attention,s:1.3}#2#{} random {C:dark_edition,s:1.3}Negative{} {C:green,s:1.3}Spectral{} cards",
-            "{C:green}Permanently{} gain {C:red,s:1.3}+#3#{} discard every round",
+            "Gain {C:red,s:1.3}+#3#{} discard every round",
             "{C:green}Increase{} this card's mult by {C:mult,s:1.3}+#4#",
             "{C:inactive}(Currently #5# mult)"
         }
@@ -1594,9 +1659,9 @@ local decorus = SMODS.Joker {
     end
 }
 
-----------------
----this thing---
-----------------
+------------------
+---these things---
+------------------
 
     local chroma = SMODS.Joker {
         key = "chroma",
@@ -1645,8 +1710,7 @@ local decorus = SMODS.Joker {
             }}
         end,
         calculate = function(self, card, context)
-            if context.joker_main then
-                return amaz_emult_to_xmult_table(card.ability.extra.emult, mult, card, context)
+            if context.joker_main then return amaz_emult_to_xmult_table(card.ability.extra.emult, mult, card, context)
             elseif context.cardarea == G.play then
                 local card_rank = SMODS.Ranks[context.other_card.base.value].key
                 if context.repetition then
@@ -1701,5 +1765,6 @@ local decorus = SMODS.Joker {
                     end
                 end
             end
-        end
+        end,
+        add_to_deck = function(self, card, from_debuff) if not from_debuff then play_sound("amazin_mythic") end end
     }
