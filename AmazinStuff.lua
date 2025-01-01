@@ -51,45 +51,31 @@ SMODS.Atlas {
     py = 34
 }
 
--- custom rarity, thanks rarlib!
-
-CGLIBWEIGHTS = {
-    0.7,
-    0.25,
-    0.05,
-    mythic = 0.009,
-    pristine = 0.03,
-    awful = 0
-}
-
-local mythic_higher_than, pristine_higher_than = nil, nil
-if next(SMODS.find_mod("Cryptid")) then
-    mythic_higher_than = "cry_exotic"
-    pristine_higher_than = "cry_epic"
-else pristine_higher_than = 4 end
-
-CGLIB.Rarity {
+SMODS.Rarity {
     key = "amaz_mythic",
-    name = "Mythic",
-    color = HEX("e6a029"),
-    shopweight = 0.01,
-    oneHigher = mythic_higher_than
+    loc_txt = {name = "Mythic"},
+    polls = {
+        ["Joker"] = {rate = 0.009}
+    },
+    badge_colour = HEX("e6a029")
 }
 
-CGLIB.Rarity {
+SMODS.Rarity {
     key = "amaz_awful",
-    name = "Awful",
-    color = HEX("d64d27"),
-    shopweight = 0,
-    oneHigher = 1
+    loc_txt = { name = "Awful" },
+    polls = {
+        ["Joker"] = { rate = 0 }
+    },
+    badge_colour = HEX("d64d27")
 }
 
-CGLIB.Rarity {
+SMODS.Rarity {
     key = "amaz_pristine",
-    name = "Pristine",
-    color = HEX("1a4fc9"),
-    shopweight = 0.03,
-    oneHigher = pristine_higher_than
+    loc_txt = { name = "Pristine" },
+    polls = {
+        ["Joker"] = { rate = 0.03 }
+    },
+    badge_colour = HEX("1a4fc9")
 }
 
 SMODS.Sound {
