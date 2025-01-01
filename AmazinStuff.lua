@@ -2,7 +2,7 @@
 --- MOD_NAME: Amazin Stuff
 --- MOD_ID: AmazinStuff
 --- MOD_AUTHOR: [AmazinDooD]
---- MOD_DESCRIPTION: A simple-ish mod with a bunch of my ideas. Requires JenLib and CG223's RarityLib.
+--- MOD_DESCRIPTION: A simple-ish mod with a bunch of my ideas. Requires JenLib.
 --- BADGE_COLOR: 33CC94
 --- DEPENDENCIES: [JenLib, rarlib]
 --- PREFIX: amazin
