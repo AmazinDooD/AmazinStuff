@@ -1,5 +1,5 @@
 # AmazinStuff
-A simple Balatro mod that adds some of my ideas. This mod requries JenLib as well as CG223's RarityLib.
+A simple Balatro mod that adds some of my ideas. This mod requries JenLib.
 
 ## Contents
 
